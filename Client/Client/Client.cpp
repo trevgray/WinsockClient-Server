@@ -23,11 +23,6 @@ int main() {
 
 	struct addrinfo* result = nullptr, * ptr = nullptr, hints;
 
-	char sendBuf[] = "this is a test";
-
-	char recvbuf[DEFAULT_BUFFER_LENGTH];
-	int iSendResult;
-
 	//initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2)/*make sure we use version 2.2*/, &wsaData); //
 	if (iResult != 0) {
@@ -53,6 +48,8 @@ int main() {
 		}
 	}
 
+	std::cout << "Attempting to connect to server" << std::endl;
+
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) { //move addresses till one succeeds
 		//Create a socket for connecting to the server
 		connectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol); //find a open socket
@@ -70,6 +67,7 @@ int main() {
 			connectSocket = INVALID_SOCKET;
 			continue;
 		}
+		std::cout << "Connected to server" << std::endl;
 		break;
 	}
 
@@ -81,17 +79,27 @@ int main() {
 		return 1;
 	}
 
-	//Send an initial buffer
-	iResult = send(connectSocket, sendBuf, (int)strlen(sendBuf), 0);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "Send failed with error: " << iResult << std::endl;
-		closesocket(connectSocket);
-		WSACleanup();
-		system("pause");
-		return 1;
-	}
+	//Receive until the peer closes connection
+	std::string message;
+	do {
+		message.clear();
+		std::cout << "Input a sting to send (!exit to disconnect): ";
+		std::cin >> message;
+		int messageSize = strlen(message.c_str());
+		//Send an initial buffer
+		iResult = send(connectSocket, message.c_str(), messageSize, 0);
+		if (iResult == SOCKET_ERROR) {
+			std::cout << "Send failed with error: " << iResult << std::endl;
+			closesocket(connectSocket);
+			WSACleanup();
+			system("pause");
+			return 1;
+		}
+		std::cout << "Bytes sent: " << iResult << std::endl;
+	} while (message != "!exit");
 
-	std::cout << "Bytes sent: " << iResult << std::endl;
+	std::cout << "User typed '!exit' - Disconnecting from server..." << std::endl;
+	std::cout << "Connection closed" << std::endl;
 
 	//shutdown the connection
 	iResult = shutdown(connectSocket, SD_SEND);
@@ -103,24 +111,8 @@ int main() {
 		return 1;
 	}
 
-	//Receive until the peer closes connection
-	do {
-		iResult = recv(connectSocket, recvbuf, DEFAULT_BUFFER_LENGTH, 0);
-		if (iResult > 0) {
-			std::cout << "Bytes received: " << iResult << std::endl;
-		}
-		else if (iResult == 0) {
-			std::cout << "Connection closed " << std::endl;
-		}
-		else {
-			std::cout << "recv failed with error: " << WSAGetLastError() << std::endl;
-		}
-	} while (iResult > 0);
-
 	closesocket(connectSocket);
 	WSACleanup();
-
-	std::cout << "Finished" << std::endl;
 
 	return 0;
 }

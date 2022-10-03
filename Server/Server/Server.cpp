@@ -83,7 +83,7 @@ int main() {
 		return 1;
 	}
 
-	std::cout << "Listening from connections..." << std::endl;
+	std::cout << "Waiting for connection request..." << std::endl;
 	
 	//Accept a client socket
 	clientSocket = accept(listenSocket, nullptr, nullptr);
@@ -97,23 +97,18 @@ int main() {
 
 	closesocket(listenSocket);
 
-	//receive until the peer shutsdown the connect
+	//receive until the peer shutdown the connect
 	do {
+		for (int x = 0; x < DEFAULT_BUFFER_LENGTH; x++) {
+			recvbuf[x] = 0;
+		}
 		iResult = recv(clientSocket, recvbuf, DEFAULT_BUFFER_LENGTH, 0);
 		if (iResult > 0) {
-			std::cout << "Bytes received: " << iResult << std::endl;
-			iSendResult = send(clientSocket, recvbuf, iResult, 0);
-			if (iSendResult == SOCKET_ERROR) {
-				std::cout << "Send failed with error: " << WSAGetLastError() << std::endl;
-				closesocket(listenSocket);
-				WSACleanup();
-				system("pause");
-				return 1;
-			}
-			std::cout << "Bytes sent: " << iSendResult << std::endl;
+			std::cout << "Received string: " << recvbuf << std::endl;
 		}
 		else if (iResult == 0) {
 			std::cout << "Connection closing..." << std::endl;
+			break;
 		}
 		else {
 			std::cout << "Receive failed with error: " << WSAGetLastError() << std::endl;
@@ -122,7 +117,7 @@ int main() {
 			system("pause");
 			return 1;
 		}
-	} while (iResult > 0);
+	} while (recvbuf != "!exit");
 
 	//shutdown the connection on our end
 	iResult = shutdown(clientSocket, SD_SEND);
@@ -136,8 +131,6 @@ int main() {
 
 	closesocket(clientSocket);
 	WSACleanup();
-
-	std::cout << "Finished" << std::endl;
 
 	return 0;
 }

@@ -1,2 +1,3 @@
 ﻿  Server.cpp
-  Server.vcxproj -> D:\Visual Studio\Server\Debug\Server.exe
+E:\GitHub\WinsockClient-Server\Server\Server\Server.cpp(27,6): warning C4101: 'iSendResult': unreferenced local variable
+  Server.vcxproj -> E:\GitHub\WinsockClient-Server\Server\Debug\Server.exe
