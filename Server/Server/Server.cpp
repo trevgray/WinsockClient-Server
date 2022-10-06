@@ -95,6 +95,8 @@ int main() {
 		return 1;
 	}
 
+	std::cout << "Connected to client" << std::endl;
+
 	closesocket(listenSocket);
 
 	//receive until the peer shutdown the connect
@@ -128,6 +130,8 @@ int main() {
 		system("pause");
 		return 1;
 	}
+
+	std::cout << "Connection closed" << std::endl;
 
 	closesocket(clientSocket);
 	WSACleanup();

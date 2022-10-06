@@ -99,7 +99,6 @@ int main() {
 	} while (message != "!exit");
 
 	std::cout << "User typed '!exit' - Disconnecting from server..." << std::endl;
-	std::cout << "Connection closed" << std::endl;
 
 	//shutdown the connection
 	iResult = shutdown(connectSocket, SD_SEND);
@@ -110,6 +109,8 @@ int main() {
 		system("pause");
 		return 1;
 	}
+
+	std::cout << "Connection closed" << std::endl;
 
 	closesocket(connectSocket);
 	WSACleanup();
