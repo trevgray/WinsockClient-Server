@@ -1,0 +1,3 @@
+﻿  Client.cpp
+D:\Visual Studio\UDPClient\UDPClient\Client.cpp(6,35): warning C4326: return type of 'main' should be 'int' instead of 'void'
+  UDPClient.vcxproj -> D:\Visual Studio\UDPClient\Debug\UDPClient.exe
