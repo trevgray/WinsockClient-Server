@@ -1,3 +1,3 @@
 ﻿  Server.cpp
-D:\Visual Studio\UDPServer\UDPServer\Server.cpp(8,13): warning C4326: return type of 'main' should be 'int' instead of 'void'
-  UDPServer.vcxproj -> D:\Visual Studio\UDPServer\Debug\UDPServer.exe
+E:\GitHub\WinsockClient-Server\UDPServer\UDPServer\Server.cpp(11,13): warning C4326: return type of 'main' should be 'int' instead of 'void'
+  UDPServer.vcxproj -> E:\GitHub\WinsockClient-Server\UDPServer\Debug\UDPServer.exe

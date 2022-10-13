@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <WS2tcpip.h>
+#include <vector>
 
 // Include the Winsock library (lib) file
 #pragma comment (lib, "ws2_32.lib")
@@ -37,15 +38,17 @@ void main() {
 	SOCKET in = socket(AF_INET, SOCK_DGRAM, 0); //SOCK_DGRAM is what makes it a udp socket
 
 	// Create a server hint structure for the server
-	sockaddr_in serverhint;
+	sockaddr_in serverHint;
 	serverHint.sin_addr.S_un.S_addr = ADDR_ANY; // Us any IP address available on the machine
 	serverHint.sin_family = AF_INET; // Address format is IPv4
-	serverhint.sin_port = htons(5400); //big endian system - most machines are big endian
+	serverHint.sin_port = htons(5400); //big endian system - most machines are big endian
 
 	//Try and bind the socket to the IP and port
-	if (bind(in, (sockaddr*)&serverhint, sizeof(serverhint)) == SOCKET_ERROR) { //bind the socket
+	if (bind(in, (sockaddr*)&serverHint, sizeof(serverHint)) == SOCKET_ERROR) { //bind the socket
 		std::cout << "Can't bind to socket " << WSAGetLastError() << std::endl;
 	}
+
+	std::cout << "Server Up! Waiting for message..." << std::endl;
 
 	////////////////////////////////////////////////////////////
 	// MAIN LOOP SETUP AND ENTRY
@@ -55,6 +58,8 @@ void main() {
 	int clientLength = sizeof(client); // The size of the client information
 	
 	char buf[1024];
+
+	std::vector<std::string> messageArray;
 
 	while (true) {
 		ZeroMemory(&client, clientLength); // Clear the client structure
@@ -73,10 +78,24 @@ void main() {
 
 		// Convert from byte array to chars
 		inet_ntop(AF_INET, &client.sin_addr, clientIP, 256);
+		int sendCheck = strcmp(buf, "SEND");
+		if (sendCheck == 0) {
+			std::cout << "Message received from [" << clientIP << "]: All good!" << std::endl;
+			for (std::string message : messageArray) {
+				//std::cout << message << std::endl;
+				int sendOk = sendto(in, message.c_str(), message.size() + 1, 0, (sockaddr*)&client, clientLength);
+				if (sendOk == SOCKET_ERROR) {
+					std::cout << "Send Error: " << WSAGetLastError() << std::endl;
+				}
+			}
+			//
 
-		// Display the message / who sent it
-		std::cout << "Message received from [" << clientIP << "] > " << buf << std::endl;
-
+		}
+		else {
+			// Display the message / who sent it
+			std::cout << "Message received from [" << clientIP << "]: " << buf << std::endl;
+			messageArray.push_back(buf);
+		}
 	}
 
 	// Close socket
