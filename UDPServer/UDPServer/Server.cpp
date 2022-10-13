@@ -50,16 +50,16 @@ void main() {
 
 	std::cout << "Server Up! Waiting for message..." << std::endl;
 
-	////////////////////////////////////////////////////////////
-	// MAIN LOOP SETUP AND ENTRY
-	////////////////////////////////////////////////////////////
-
 	sockaddr_in client; //used to hold the client info
 	int clientLength = sizeof(client); // The size of the client information
 	
 	char buf[1024];
 
 	std::vector<std::string> messageArray;
+
+	////////////////////////////////////////////////////////////
+	// MAIN LOOP SETUP AND ENTRY
+	////////////////////////////////////////////////////////////
 
 	while (true) {
 		ZeroMemory(&client, clientLength); // Clear the client structure
@@ -78,9 +78,7 @@ void main() {
 
 		// Convert from byte array to chars
 		inet_ntop(AF_INET, &client.sin_addr, clientIP, 256);
-		int sendCheck = strcmp(buf, "SEND");
-		if (sendCheck == 0) {
-			std::cout << "Message received from [" << clientIP << "]: All good!" << std::endl;
+		if (strcmp(buf, "SEND") == 0) {
 			for (std::string message : messageArray) {
 				//std::cout << message << std::endl;
 				int sendOk = sendto(in, message.c_str(), message.size() + 1, 0, (sockaddr*)&client, clientLength);
@@ -89,7 +87,35 @@ void main() {
 				}
 			}
 			//
+			ZeroMemory(&client, clientLength); // Clear the client structure
+			ZeroMemory(buf, 1024); // Clear the receive buffer
 
+			// Wait for message
+			int bytesIn = recvfrom(in, buf, 1024, 0, (sockaddr*)&client, &clientLength);
+			if (bytesIn == SOCKET_ERROR) {
+				std::cout << "Error receiving from client " << WSAGetLastError() << std::endl;
+				continue;
+			}
+			if (strcmp(buf, "All good!") == 0) {
+				std::cout << "Message received from [" << clientIP << "]: " << buf << std::endl;
+				std::cout << "Confirmation received! - Printing them" << std::endl;
+				int messageIterator = 1;
+				for (std::string message : messageArray) {
+					std::cout << "Message #" << messageIterator << " : " << message << std::endl;
+					messageIterator++;
+				}
+				messageArray.clear();
+				continue;
+			}
+			else {
+				messageArray.clear();
+				std::cout << "Confirmation Error " << std::endl;
+				continue;
+			}
+		}
+		else if (strcmp(buf, "EXIT") == 0) {
+			std::cout << "Client Disconnected" << std::endl;
+			break;
 		}
 		else {
 			// Display the message / who sent it
@@ -97,6 +123,7 @@ void main() {
 			messageArray.push_back(buf);
 		}
 	}
+
 
 	// Close socket
 	closesocket(in);
