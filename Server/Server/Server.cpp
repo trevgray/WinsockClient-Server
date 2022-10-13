@@ -74,6 +74,7 @@ int main() {
 	freeaddrinfo(result);
 
 	//listen
+	std::cout << "LISTEN\n";
 	iResult = listen(listenSocket, SOMAXCONN); //SOMAXCONN allows maximum number of connections
 	if (iResult == SOCKET_ERROR) {
 		std::cout << "Listen Socket failed with error: " << WSAGetLastError() << std::endl;
@@ -119,7 +120,7 @@ int main() {
 			system("pause");
 			return 1;
 		}
-	} while (recvbuf != "!exit");
+	} while (iResult == 0);
 
 	//shutdown the connection on our end
 	iResult = shutdown(clientSocket, SD_SEND);
