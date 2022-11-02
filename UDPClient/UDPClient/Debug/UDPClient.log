@@ -1,3 +1,1 @@
-﻿  Client.cpp
-E:\GitHub\WinsockClient-Server\UDPClient\UDPClient\Client.cpp(8,35): warning C4326: return type of 'main' should be 'int' instead of 'void'
-  UDPClient.vcxproj -> E:\GitHub\WinsockClient-Server\UDPClient\Debug\UDPClient.exe
+﻿
