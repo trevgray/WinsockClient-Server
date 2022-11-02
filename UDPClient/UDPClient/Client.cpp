@@ -95,13 +95,23 @@ void main(int argc, char* argv[]) {
 
 				inet_ntop(AF_INET, &server.sin_addr, serverIP, 256);
 
-				std::cout << "Message from [" << serverIP << "]: " << messageIterator << std::endl;
-				messageIterator++;
+				std::cout << "Message from [" << serverIP << "]: " << messageIterator << std::endl; //print that we received the message
 
-				int receiveCheck = strcmp(buf, message.c_str());
-				if (receiveCheck == 1) {
-					messageCheck = false;
+				int receiveCheck = strcmp(buf, message.c_str()); //check the two messages together
+				if (receiveCheck == 1) { //if the message != to the current message
+					bool swapMessageCheck = false; //set up a bool to check if any of the messages were == to the message sent
+					int swapMessageIterator = 0;
+					for (std::string message2 : messageArray) { //check it against all the other messages in the array
+						swapMessageIterator++; //check track of the message we are one
+						if (strcmp(buf, message2.c_str()) == 0) { //if the message is found, swap the two around
+							std::string tempString = messageArray[messageIterator - 1];
+							messageArray[messageIterator - 1] = message2;
+							messageArray[swapMessageIterator] = tempString;
+						}
+					}
+					messageCheck = swapMessageCheck;
 				}
+				messageIterator++;
 			}
 
 			messageArray.clear();
