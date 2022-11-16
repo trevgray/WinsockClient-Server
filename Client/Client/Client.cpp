@@ -1,126 +1,112 @@
-#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
-#endif // !WIN32_LEAN_AND_MEAN
-
 
 #include <Windows.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
-#include <iphlpapi.h> //include after WinSock2.h
+#include <stdio.h>
 
 #include <iostream>
-#pragma comment(lib, "ws2_32.lib")
+
+#pragma comment(lib, "Ws2_32.lib")
 
 #define DEFAULT_PORT "27015"
-#define DEFAULT_BUFFER_LENGTH 512
+#define DEFAULT_BUFLEN 512
 
-int main() {
-	//initialize Winsock
-	WSADATA wsaData; //https://learn.microsoft.com/en-us/windows/win32/api/winsock/ns-winsock-wsadata
-	int iResult; //check if the start up failed
+int main(int argc, char** argv) {
+	WSADATA wsaData;
+	int iResult;
 
-	SOCKET connectSocket = INVALID_SOCKET;
+	SOCKET ConnectSocket = INVALID_SOCKET;
 
-	struct addrinfo* result = nullptr, * ptr = nullptr, hints;
 
-	char sendBuf[] = "this is a test";
+	char sendbuf[] = "";
+	char recvbuf[DEFAULT_BUFLEN];
+	int recvbuflen = DEFAULT_BUFLEN;
 
-	char recvbuf[DEFAULT_BUFFER_LENGTH];
-	int iSendResult;
 
-	//initialize Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2)/*make sure we use version 2.2*/, &wsaData); //
+
+	struct addrinfo* result = NULL, * ptr = NULL, hints;
+
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+
 	if (iResult != 0) {
-		std::cout << "WSAStartup failed: " << iResult << std::endl;
+		printf("WSAStartup Failed!: %d\n", iResult);
 		system("pause");
 		return 1;
-	}
+	}//endif
 
-	//hints define the connection type and the address that will be used
 	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_UNSPEC; //don't specificity the address family (IVP6 / IVP 4)
-	hints.ai_socktype = SOCK_STREAM; //TCP works like a stream
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	//Resolve the server address and port
-	iResult = getaddrinfo("localhost", DEFAULT_PORT, &hints, &result); //localhost connections be to the own computer - this is where you enter the ip
-	{ //result gets full of how to connection to the computer
-		if (iResult != 0) {
-			std::cout << "getaddrinfo failed with error: " << iResult << std::endl;
+
+	iResult = getaddrinfo("localhost", DEFAULT_PORT, &hints, &result);
+
+	if (iResult != 0) {
+		printf("getaddinfo failed: %d\n: ", iResult);
+		WSACleanup();
+		system("pause");
+		return 1;
+	}//end if
+
+	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("Socket failed with error: %d\n: ", WSAGetLastError());
 			WSACleanup();
 			system("pause");
 			return 1;
-		}
-	}
-
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) { //move addresses till one succeeds
-		//Create a socket for connecting to the server
-		connectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol); //find a open socket
-		if (connectSocket == INVALID_SOCKET) {
-			std::cout << "Socket failed with error: " << iResult << std::endl;
-			WSACleanup();
-			system("pause");
-			return 1;
-		}
-
-		//Connect to the server
-		iResult = connect(connectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+		}//end if
+		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 		if (iResult == SOCKET_ERROR) {
-			closesocket(connectSocket);
-			connectSocket = INVALID_SOCKET;
+			closesocket(ConnectSocket);
+			ConnectSocket = INVALID_SOCKET;
 			continue;
-		}
+		}//end if
 		break;
-	}
+	}//end for 
 
-	freeaddrinfo(result);
-	if (connectSocket == INVALID_SOCKET) {
-		std::cout << "Unable to connect to the server: " << iResult << std::endl;
-		WSACleanup();
-		system("pause");
-		return 1;
-	}
 
-	//Send an initial buffer
-	iResult = send(connectSocket, sendBuf, (int)strlen(sendBuf), 0);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "Send failed with error: " << iResult << std::endl;
-		closesocket(connectSocket);
-		WSACleanup();
-		system("pause");
-		return 1;
-	}
 
-	std::cout << "Bytes sent: " << iResult << std::endl;
-
-	//shutdown the connection
-	iResult = shutdown(connectSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "Shutdown failed with error: " << WSAGetLastError() << std::endl;
-		closesocket(connectSocket);
-		WSACleanup();
-		system("pause");
-		return 1;
-	}
-
-	//Receive until the peer closes connection
 	do {
-		iResult = recv(connectSocket, recvbuf, DEFAULT_BUFFER_LENGTH, 0);
+		std::cin.getline(sendbuf, DEFAULT_BUFLEN);
+		iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
+		if (iResult == SOCKET_ERROR) {
+			printf("Send failed with error: %d\n: ", WSAGetLastError());
+			closesocket(ConnectSocket);
+			WSACleanup();
+			system("pause");
+			return 1;
+		}//end if
+		printf("Bytes sent: %d\n", iResult);
+
+		iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
 		if (iResult > 0) {
-			std::cout << "Bytes received: " << iResult << std::endl;
+			printf("Bytes received: %d\n", iResult);
 		}
 		else if (iResult == 0) {
-			std::cout << "Connection closed " << std::endl;
+			printf("Connection closed\n");
 		}
 		else {
-			std::cout << "recv failed with error: " << WSAGetLastError() << std::endl;
+			printf("recv failed %d\n", WSAGetLastError());
 		}
 	} while (iResult > 0);
 
-	closesocket(connectSocket);
+	iResult = shutdown(ConnectSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		printf("shutdown failed with error: %d\n", WSAGetLastError());
+		closesocket(ConnectSocket);
+		WSACleanup();
+		system("pause");
+		return 1;
+	}//end if
+
+	closesocket(ConnectSocket);
 	WSACleanup();
 
-	std::cout << "Finished" << std::endl;
+	printf("CLIENT END\n");
+	system("pause");
 
 	return 0;
-}
+}//end main
