@@ -30,25 +30,26 @@ void TCPChat::AddClientSession(void* data) {
 	int iClientResult;
 
 	while (running == true) {
-		iClientResult = recv(clientSocket, (char*)&clientChatBuffer, sizeof(ActorBuffer), 0);
+
+		ZeroMemory(&clientChatBuffer.message, 512);
+
+		iClientResult = recv(clientSocket, (char*)&clientChatBuffer, sizeof(ChatBuffer), 0);
 		if (iClientResult > 0) {
-
-			printf("%f %f %f\n", clientActorBuffer.position.x, clientActorBuffer.position.y, clientActorBuffer.position.z);
-			EngineManager::Instance()->GetActorManager()->GetActor<Actor>(std::to_string(clientActorBuffer.ID))->GetComponent<TransformComponent>()->SetPosition(clientActorBuffer.position);
-			EngineManager::Instance()->GetActorManager()->GetActor<Actor>(std::to_string(clientActorBuffer.ID))->GetComponent<TransformComponent>()->setOrientation(clientActorBuffer.orientation);
-
-			clientActorBuffer.position = EngineManager::Instance()->GetActorManager()->GetActor<Actor>("Player")->GetComponent<TransformComponent>()->GetPosition();
-			clientActorBuffer.orientation = EngineManager::Instance()->GetActorManager()->GetActor<Actor>("Player")->GetComponent<TransformComponent>()->GetQuaternion();
-
+			std::cout << "TEST TEST: " << clientChatBuffer.message << std::endl;
+			clientSendbuf = (char*)&clientChatBuffer; //binary representation 
 			//SEND MESSAGE TO ALL CLIENTS---------------------------------------
-
-			clientSendbuf = (char*)&clientActorBuffer; //binary representation 
-
-			iClientResult = send(clientSocket, clientSendbuf, sizeof(ActorBuffer), 0);
+			for (SOCKET socket : clientSockets) {
+				iClientResult = send(socket, clientSendbuf, sizeof(ChatBuffer), 0);
+				if (iClientResult == SOCKET_ERROR) {
+					std::cout << "Send failed with error: " << iClientResult << std::endl;
+					break;
+				}
+			}
+			/*iClientResult = send(clientSocket, clientSendbuf, sizeof(ActorBuffer), 0);
 			if (iClientResult == SOCKET_ERROR) {
 				std::cout << "Send failed with error: " << iClientResult << std::endl;
 				break;
-			}
+			}*/
 		}
 		else {
 			std::cout << "Connection closing..." << std::endl;
@@ -169,6 +170,8 @@ void TCPChat::Run() {
 
 				std::cout << "Connected to client" << std::endl;
 
+				clientSockets.push_back(connectSocket);
+
 				//create a thread and start it
 				std::thread clientThread(&TCPChat::AddClientSession, this, (void*)connectSocket);
 				clientThread.detach();
@@ -196,6 +199,10 @@ void TCPChat::Run() {
 					}
 					std::cout << "Connected to server" << std::endl;
 
+					//SPIN A THREAD HERE TO RECIEVE MESSAGES FROM THE SERVER
+					std::thread serverMessageThread(&TCPChat::ReceiveServerMessages, this);
+					serverMessageThread.detach();
+
 					break;
 				}
 
@@ -208,35 +215,45 @@ void TCPChat::Run() {
 			}
 
 			//CIN THE MESSAGE HERE----------------------------------------
+			std::string message;
+			std::cin >> message;
 
-			//Receive until the peer closes connection
-			actorBuffer.position = EngineManager::Instance()->GetActorManager()->GetActor<Actor>("Player")->GetComponent<TransformComponent>()->GetPosition();
-			actorBuffer.orientation = EngineManager::Instance()->GetActorManager()->GetActor<Actor>("Player")->GetComponent<TransformComponent>()->GetQuaternion();
-			actorBuffer.ID = actorID;
+			int iterator = 0;
 
-			sendbuf = (char*)&actorBuffer; //binary representation 
+			ZeroMemory(&chatBuffer.message, 512);
 
-			iResult = send(connectSocket, sendbuf, sizeof(ActorBuffer), 0);
+			for (char messageChar : message) {
+				chatBuffer.message[iterator] = messageChar;
+				iterator++;
+			}
+			chatBuffer.username[0] = 't';
+
+			sendbuf = (char*)&chatBuffer; //binary representation 
+
+			iResult = send(connectSocket, sendbuf, sizeof(ChatBuffer), 0);
 			if (iResult == SOCKET_ERROR) {
 				std::cout << "Send failed with error: " << iResult << std::endl;
 				this->~TCPChat();
 				return;
 			}
-
-			iResult = recv(connectSocket, (char*)&actorBuffer, sizeof(ActorBuffer), 0);
-			if (iResult > 0) {
-
-				printf("%f %f %f\n", actorBuffer.position.x, actorBuffer.position.y, actorBuffer.position.z);
-				EngineManager::Instance()->GetActorManager()->GetActor<Actor>("ServerActor")->GetComponent<TransformComponent>()->SetPosition(actorBuffer.position);
-				EngineManager::Instance()->GetActorManager()->GetActor<Actor>("ServerActor")->GetComponent<TransformComponent>()->setOrientation(actorBuffer.orientation);
-			}
-			else {
-				std::cout << "Receive failed with error: " << WSAGetLastError() << std::endl;
-				this->~TCPChat();
-				return;
-			}
-			//std::cout << "Bytes sent: " << iResult << std::endl;
 		}
+	}
+}
+
+void TCPChat::ReceiveServerMessages() {
+	while (running == true) {
+		ZeroMemory(&chatBuffer.message, 512);
+
+		iResult = recv(connectSocket, (char*)&chatBuffer, sizeof(ChatBuffer), 0);
+		if (iResult > 0) {
+			std::cout << chatBuffer.message << std::endl;
+		}
+		else {
+			std::cout << "Receive failed with error: " << WSAGetLastError() << std::endl;
+			this->~TCPChat();
+			return;
+		}
+		//std::cout << "Bytes sent: " << iResult << std::endl;
 	}
 }
 

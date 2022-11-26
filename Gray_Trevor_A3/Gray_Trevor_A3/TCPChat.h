@@ -23,7 +23,7 @@ enum NetworkNode {
 };
 
 struct ChatBuffer {
-	ChatBuffer() {}
+	//ChatBuffer() {}
 	char username[50];
 	char message[512];
 };
@@ -53,6 +53,9 @@ private:
 
 	//Server Variables & Functions
 	void AddClientSession(void* data);
+
+	//Client Functions
+	void ReceiveServerMessages();
 
 	//server socket
 	SOCKET listenSocket;
