@@ -30,29 +30,26 @@ void TCPChat::AddClientSession(void* data) {
 	int iClientResult;
 
 	while (running == true) {
-
+		ZeroMemory(&clientChatBuffer.username, 50);
 		ZeroMemory(&clientChatBuffer.message, 512);
 
 		iClientResult = recv(clientSocket, (char*)&clientChatBuffer, sizeof(ChatBuffer), 0);
 		if (iClientResult > 0) {
-			std::cout << "TEST TEST: " << clientChatBuffer.message << std::endl;
+			std::cout << clientChatBuffer.username << ": " << clientChatBuffer.message << std::endl;
 			clientSendbuf = (char*)&clientChatBuffer; //binary representation 
 			//SEND MESSAGE TO ALL CLIENTS---------------------------------------
 			for (SOCKET socket : clientSockets) {
-				iClientResult = send(socket, clientSendbuf, sizeof(ChatBuffer), 0);
+				if (socket != clientSocket) {
+					iClientResult = send(socket, clientSendbuf, sizeof(ChatBuffer), 0);
+				}
 				if (iClientResult == SOCKET_ERROR) {
 					std::cout << "Send failed with error: " << iClientResult << std::endl;
 					break;
 				}
 			}
-			/*iClientResult = send(clientSocket, clientSendbuf, sizeof(ActorBuffer), 0);
-			if (iClientResult == SOCKET_ERROR) {
-				std::cout << "Send failed with error: " << iClientResult << std::endl;
-				break;
-			}*/
 		}
 		else {
-			std::cout << "Connection closing..." << std::endl;
+			std::cout << "User Disconnected" << std::endl;
 			break;
 		}
 	}
@@ -64,26 +61,54 @@ void TCPChat::AddClientSession(void* data) {
 		WSACleanup();
 	}
 
-	closesocket(clientSocket);
+	for (int clientIterator = 0; clientIterator < clientSockets.size(); clientIterator++) {
+		if (clientSockets[clientIterator] == clientSocket) {
+			closesocket(clientSockets[clientIterator]);
+			clientSockets.erase(clientSockets.begin() + clientIterator);
+			break;
+		}
+	}
+
+	//closesocket(clientSocket);
 }
 
 TCPChat::~TCPChat() {
-	std::cout << ("Shutting Down the Chat") << std::endl;
+	running = false;
 	//shutdown the connection on our end
-	iResult = shutdown(listenSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		std::cout << "Shutdown failed with error: " << WSAGetLastError() << std::endl;
+	if (networkMode == Server) {
+		closesocket(listenSocket);
+		for (SOCKET socket : clientSockets) {
+			closesocket(socket);
+		}
+	}
+	if (networkMode == Client) {
+		closesocket(connectSocket);
 	}
 
 	std::cout << "Connection closed" << std::endl;
 
-	closesocket(listenSocket);
-	closesocket(connectSocket);
 	WSACleanup();
 }
 
-bool TCPChat::Initialize(NetworkNode networkMode_) {
-	networkMode = networkMode_;
+bool TCPChat::Initialize(int argc, char* args[]) {
+	if (argc == 1) {
+		networkMode = Server;
+	}
+	else if (argc == 2) {
+		networkMode = Client;
+		ZeroMemory(chatBuffer.username, 50);
+		for (int usernameTransfer = 0; usernameTransfer < 50; usernameTransfer++) {
+			chatBuffer.username[usernameTransfer] = args[1][usernameTransfer];
+		}
+	}
+	else {
+		std::cout << "Invalid parameters" << std::endl;
+		std::cout << "If the program is ran with no arguments, the program will run as the server" << std::endl;
+		std::cout << "If the program is ran with 1 argument, the program will run as the client, where argument[1] is client name" << std::endl;
+		std::cout << "THE PROGRAM WILL NOW TERMINATE" << std::endl;
+		running = false;
+		return running;
+	}
 
 	//initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2)/*make sure we use version 2.2*/, &wsaData);
@@ -151,32 +176,43 @@ bool TCPChat::Initialize(NetworkNode networkMode_) {
 void TCPChat::Run() {
 	while (running == true) {
 		if (networkMode == Server) {
+			std::thread inputThread(&TCPChat::ServerInput, this);
+			inputThread.detach();
 			//listen
 			iResult = listen(listenSocket, SOMAXCONN); //SOMAXCONN allows maximum number of connections
 			if (iResult == SOCKET_ERROR) {
 				std::cout << "Listen Socket failed with error: " << WSAGetLastError() << std::endl;
-				this->~TCPChat();
+				//this->~TCPChat();
 				return;
 			}
-			std::cout << "Waiting for connection request..." << std::endl;
+			std::cout << "Server Open" << std::endl;
 
 			while (connectSocket = accept(listenSocket, nullptr, nullptr)) {
 				//Accept a client socket
 				if (connectSocket == INVALID_SOCKET) {
-					std::cout << "Accept failed with error: " << WSAGetLastError() << std::endl;
-					this->~TCPChat();
+					//std::cout << "Accept failed with error: " << WSAGetLastError() << std::endl;
+					//this->~TCPChat();
+					return;
+				}
+				//GET USERNAME FROM CLIENT
+				ChatBuffer newClient;
+				ZeroMemory(newClient.username, 50);
+				iResult = recv(connectSocket, (char*)&newClient, sizeof(ChatBuffer), 0);
+				if (iResult > 0) {
+					std::cout << newClient.username << " Connected" << std::endl;
+				}
+				else {
+					std::cout << "Connection closing..." << std::endl;
 					return;
 				}
 
-				std::cout << "Connected to client" << std::endl;
-
+				//ADD IT TO CLIENT THREADS
 				clientSockets.push_back(connectSocket);
 
 				//create a thread and start it
 				std::thread clientThread(&TCPChat::AddClientSession, this, (void*)connectSocket);
 				clientThread.detach();
 			}
-
 		}
 		else if (networkMode == Client) {
 
@@ -197,7 +233,19 @@ void TCPChat::Run() {
 						connectSocket = INVALID_SOCKET;
 						continue;
 					}
+
+					//SEND USERNAME
+					sendbuf = (char*)&chatBuffer;
+					iResult = send(connectSocket, sendbuf, sizeof(ChatBuffer), 0);
+					if (iResult == SOCKET_ERROR) {
+						std::cout << "Send failed with error: " << iResult << std::endl;
+						this->~TCPChat();
+						return;
+					}
+					//-------------------------
+
 					std::cout << "Connected to server" << std::endl;
+					//std::cout << chatBuffer.username << ": ";
 
 					//SPIN A THREAD HERE TO RECIEVE MESSAGES FROM THE SERVER
 					std::thread serverMessageThread(&TCPChat::ReceiveServerMessages, this);
@@ -218,15 +266,20 @@ void TCPChat::Run() {
 			std::string message;
 			std::cin >> message;
 
-			int iterator = 0;
+			//LOGOFF
+			if (message == "logoff") {
+				std::cout << "Disconnecting From Server" << std::endl;
+				this->~TCPChat();
+				return;
+			}
 
+			int iterator = 0;
 			ZeroMemory(&chatBuffer.message, 512);
 
 			for (char messageChar : message) {
 				chatBuffer.message[iterator] = messageChar;
 				iterator++;
 			}
-			chatBuffer.username[0] = 't';
 
 			sendbuf = (char*)&chatBuffer; //binary representation 
 
@@ -241,19 +294,34 @@ void TCPChat::Run() {
 }
 
 void TCPChat::ReceiveServerMessages() {
+	ChatBuffer printOutBuffer;
 	while (running == true) {
-		ZeroMemory(&chatBuffer.message, 512);
+		ZeroMemory(&printOutBuffer.username, 50);
+		ZeroMemory(&printOutBuffer.message, 512);
 
-		iResult = recv(connectSocket, (char*)&chatBuffer, sizeof(ChatBuffer), 0);
+		iResult = recv(connectSocket, (char*)&printOutBuffer, sizeof(ChatBuffer), 0);
 		if (iResult > 0) {
-			std::cout << chatBuffer.message << std::endl;
+			std::cout << printOutBuffer.username << ": " << printOutBuffer.message << std::endl;
 		}
 		else {
-			std::cout << "Receive failed with error: " << WSAGetLastError() << std::endl;
+			//this can trigger from the user disconnecting
+			//std::cout << "Receive failed with error: " << WSAGetLastError() << std::endl;
+			return;
+		}
+	}
+
+}
+
+void TCPChat::ServerInput() {
+	while (running == true) {
+		std::string command;
+		std::cin >> command;
+
+		if (command == "shutdown") {
+			running = false;
 			this->~TCPChat();
 			return;
 		}
-		//std::cout << "Bytes sent: " << iResult << std::endl;
 	}
 }
 

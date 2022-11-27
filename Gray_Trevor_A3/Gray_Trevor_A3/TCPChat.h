@@ -39,8 +39,10 @@ public:
 	}
 	~TCPChat();
 
+	bool Initialize(int argc, char* args[]);
+
 	void Run();
-	bool Initialize(NetworkNode networkMode_);
+
 private:
 	TCPChat();
 	static Ref<TCPChat> instance;
@@ -53,9 +55,11 @@ private:
 
 	//Server Variables & Functions
 	void AddClientSession(void* data);
+	void ServerInput();
 
-	//Client Functions
+	//Client Variables & Functions
 	void ReceiveServerMessages();
+
 
 	//server socket
 	SOCKET listenSocket;
