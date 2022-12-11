@@ -1,8 +1,8 @@
 ﻿  TCPChat.cpp
 E:\GitHub\WinsockClient-Server\Gray_Trevor_A3\Gray_Trevor_A3\TCPChat.cpp(64,46): warning C4018: '<': signed/unsigned mismatch
   Generating code
-  9 of 285 functions ( 3.2%) were compiled, the rest were copied from previous compilation.
+  2 of 285 functions ( 0.7%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    3 functions had inline decision re-evaluated but remain unchanged
+    5 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   Gray_Trevor_A3.vcxproj -> E:\GitHub\WinsockClient-Server\Gray_Trevor_A3\Release\Gray_Trevor_A3.exe

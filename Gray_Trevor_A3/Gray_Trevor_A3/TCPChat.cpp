@@ -189,9 +189,7 @@ void TCPChat::Run() {
 
 			while (connectSocket = accept(listenSocket, nullptr, nullptr)) {
 				//Accept a client socket
-				if (connectSocket == INVALID_SOCKET) {
-					//std::cout << "Accept failed with error: " << WSAGetLastError() << std::endl;
-					//this->~TCPChat();
+				if (connectSocket == INVALID_SOCKET) {;
 					return;
 				}
 				//GET USERNAME FROM CLIENT
@@ -245,7 +243,6 @@ void TCPChat::Run() {
 					//-------------------------
 
 					std::cout << "Connected to server" << std::endl;
-					//std::cout << chatBuffer.username << ": ";
 
 					//SPIN A THREAD HERE TO RECIEVE MESSAGES FROM THE SERVER
 					std::thread serverMessageThread(&TCPChat::ReceiveServerMessages, this);
@@ -270,6 +267,11 @@ void TCPChat::Run() {
 			if (message == "logoff") {
 				std::cout << "Disconnecting From Server" << std::endl;
 				this->~TCPChat();
+				return;
+			}
+
+			//CHECK IF THE SERVER HAS BEEN DISCONNECTED
+			if (running == false) {
 				return;
 			}
 
@@ -301,12 +303,12 @@ void TCPChat::ReceiveServerMessages() {
 
 		iResult = recv(connectSocket, (char*)&printOutBuffer, sizeof(ChatBuffer), 0);
 		if (iResult > 0) {
+			if (printOutBuffer.username[0] == ' ' && printOutBuffer.username[1] == '+' && printOutBuffer.message[0] == ' ' && printOutBuffer.message[1] == '+') { //server shutdown code
+				std::cout << "Server Shutdown" << std::endl;
+				running = false;
+				break;
+			}
 			std::cout << printOutBuffer.username << ": " << printOutBuffer.message << std::endl;
-		}
-		else {
-			//this can trigger from the user disconnecting
-			//std::cout << "Receive failed with error: " << WSAGetLastError() << std::endl;
-			return;
 		}
 	}
 
@@ -318,6 +320,20 @@ void TCPChat::ServerInput() {
 		std::cin >> command;
 
 		if (command == "shutdown") {
+			ChatBuffer clientChatBuffer;
+			clientChatBuffer.username[0] = ' '; //the client is unable to make the first char in there name a space
+			clientChatBuffer.username[1] = '+';
+			clientChatBuffer.message[0] = ' ';
+			clientChatBuffer.message[1] = '+';
+			char* clientSendbuf = (char*)&clientChatBuffer; //binary representation 
+			for (SOCKET socket : clientSockets) {
+				int iClientResult = send(socket, clientSendbuf, sizeof(ChatBuffer), 0);
+				if (iClientResult == SOCKET_ERROR) {
+					std::cout << "Send failed with error: " << iClientResult << std::endl;
+					break;
+				}
+			}
+
 			running = false;
 			this->~TCPChat();
 			return;
